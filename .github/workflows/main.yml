@@ -1,0 +1,129 @@
+name: Build FlClash Core Tag
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # 从 tag 自动提取版本，例如 tag v1.19.25 → VERSION=v1.19.25
+      VERSION: ${{ github.ref_name }}
+      BUILD_TIME: ${{ github.run_started_at }}
+      OUTPUT_DIR: ./output
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 1. 配置 Go
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      # 安装 Android NDK 用于交叉编译 so
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+      - name: Add NDK to PATH
+        run: |
+          echo "NDK_PATH=$NDK_PATH" >> $GITHUB_ENV
+          echo "$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Create output folder
+        run: mkdir -p ${{ env.OUTPUT_DIR }}
+
+      # =====================
+      # 通用编译参数提取
+      # =====================
+      # ldflags 基础：去除符号 + 注入版本、编译时间
+      # extldflags：16K 页对齐
+      # tags: with_gvisor
+      # buildmode: c-shared (Android so 需要，Windows/Linux 不需要)
+        env:
+          LDFLAGS_BASE: "-w -s -X github.com/metacubex/mihomo/constant.Version=${{ env.VERSION }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.BUILD_TIME }}"
+          EXTLDFLAGS: "-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
+          BUILD_TAGS: "with_gvisor"
+        
+        # ---------------------------
+        # 编译 Android 三种架构 .so
+        # 文件名：arm64-v8a-libclash.so / armeabi-v7a-libclash.so / x86_64-libclash.so
+        # Android 必须 CGO_ENABLED=1 + -buildmode=c-shared
+        # ---------------------------
+      - name: Build Android arm64-v8a libclash.so
+        run: |
+          export CGO_ENABLED=1
+          export GOOS=android
+          export GOARCH=arm64
+          export CC=aarch64-linux-android24-clang
+            go build \
+              -ldflags "${{ env.LDFLAGS_BASE }} -extldflags '${{ env.EXTLDFLAGS }}'" \
+              -tags ${{ env.BUILD_TAGS }} \
+             -buildmode=c-shared \
+             -o ${{ env.OUTPUT_DIR }}/arm64-v8a-libclash.so
+
+      - name: Build Android armeabi-v7a libclash.so
+        run: |
+          export CGO_ENABLED=1
+          export GOOS=android
+          export GOARCH=arm
+          export GOARM=7
+          export CC=armv7a-linux-androideabi24-clang
+          go build \
+            -ldflags "${{ env.LDFLAGS_BASE }} -extldflags '${{ env.EXTLDFLAGS }}'" \
+            -tags ${{ env.BUILD_TAGS }} \
+            -buildmode=c-shared \
+            -o ${{ env.OUTPUT_DIR }}/armeabi-v7a-libclash.so
+
+      - name: Build Android x86_64 libclash.so
+        run: |
+          export CGO_ENABLED=1
+          export GOOS=android
+          export GOARCH=amd64
+          export CC=x86_64-linux-android24-clang
+          go build \
+             -ldflags "${{ env.LDFLAGS_BASE }} -extldflags '${{ env.EXTLDFLAGS }}'" \
+             -tags ${{ env.BUILD_TAGS }} \
+             -buildmode=c-shared \
+            -o ${{ env.OUTPUT_DIR }}/x86_64-libclash.so
+        
+        # ---------------------------
+        # Windows amd64 可执行文件
+        # 文件名：windows-amd64-FlClashCore.exe
+        # Windows 不需要 c-shared、不需要 extldflags 链接脚本
+        # ---------------------------
+      - name: Build Windows amd64 FlClashCore.exe
+        run: |
+          export CGO_ENABLED=0
+          export GOOS=windows
+          export GOARCH=amd64
+          go build \
+             -ldflags "${{ env.LDFLAGS_BASE }}" \
+             -tags ${{ env.BUILD_TAGS }} \
+            -o ${{ env.OUTPUT_DIR }}/windows-amd64-FlClashCore.exe
+        
+        # ---------------------------
+        # Linux amd64 二进制
+        # 文件名：linux-amd64-FlClashCore
+        # ---------------------------
+      - name: Build Linux amd64 FlClashCore
+        run: |
+            export CGO_ENABLED=0
+            export GOOS=linux
+            export GOARCH=amd64
+            go build \
+              -ldflags "${{ env.LDFLAGS_BASE }} -extldflags '${{ env.EXTLDFLAGS }}'" \
+              -tags ${{ env.BUILD_TAGS }} \
+              -o ${{ env.OUTPUT_DIR }}/linux-amd64-FlClashCore
+        
+        # 上传所有产物到 Actions 制品
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlClashCore-${{ env.VERSION }}
+          path: ${{ env.OUTPUT_DIR }}
