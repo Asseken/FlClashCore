@@ -1,0 +1,141 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: Add NDK to PATH
+        run: echo "$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Create output directory
+        run: mkdir -p output
+
+      # ============================================================
+      # Android: CGO_ENABLED=1 + NDK + c-shared → .so 动态库
+      # ============================================================
+
+      - name: Build Android arm64-v8a
+        run: |
+          CGO_ENABLED=1 GOOS=android GOARCH=arm64 CFLAGS="-O3 -Werror" \
+          CC=aarch64-linux-android21-clang \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
+            -tags=with_gvisor \
+            -buildmode=c-shared \
+            -o output/arm64-v8a-libclash.so
+
+      - name: Build Android armeabi-v7a
+        run: |
+          CGO_ENABLED=1 GOOS=android GOARCH=arm GOARM=7 CFLAGS="-O3 -Werror" \
+          CC=armv7a-linux-androideabi21-clang \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
+            -tags=with_gvisor \
+            -buildmode=c-shared \
+            -o output/armeabi-v7a-libclash.so
+
+      - name: Build Android x86_64
+        run: |
+          CGO_ENABLED=1 GOOS=android GOARCH=amd64 CFLAGS="-O3 -Werror" \
+          CC=x86_64-linux-android21-clang \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
+            -tags=with_gvisor \
+            -buildmode=c-shared \
+            -o output/x86_64-libclash.so
+
+      # ============================================================
+      # Windows: CGO_ENABLED=0 → .exe 可执行文件
+      # ============================================================
+
+      - name: Build Windows amd64
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -tags=with_gvisor \
+            -o output/windows-amd64-FlClashCore.exe
+
+      - name: Build Windows arm64
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -tags=with_gvisor \
+            -o output/windows-arm64-FlClashCore.exe
+
+      # ============================================================
+      # Linux: CGO_ENABLED=0 → 可执行文件
+      # ============================================================
+
+      - name: Build Linux amd64
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -tags=with_gvisor \
+            -o output/linux-amd64-FlClashCore
+
+      - name: Build Linux arm64
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -tags=with_gvisor \
+            -o output/linux-arm64-FlClashCore
+
+      # ============================================================
+      # macOS: CGO_ENABLED=0 → 可执行文件（Linux 交叉编译）
+      # ============================================================
+
+      - name: Build macOS amd64
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -tags=with_gvisor \
+            -o output/macos-amd64-FlClashCore
+
+      - name: Build macOS arm64
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 \
+          go build \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -tags=with_gvisor \
+            -o output/macos-arm64-FlClashCore
+
+      # ============================================================
+      # Release: 将所有产物发布到 GitHub Release
+      # ============================================================
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
