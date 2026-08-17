@@ -119,7 +119,7 @@ jobs:
           go build \
             -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
             -tags=with_gvisor \
-            -o output/macos-amd64-FlClashCore
+            -o output/darwin-amd64-FlClashCore
 
       - name: Build macOS arm64
         run: |
@@ -127,7 +127,7 @@ jobs:
           go build \
             -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
             -tags=with_gvisor \
-            -o output/macos-arm64-FlClashCore
+            -o output/darwin-arm64-FlClashCore
 
       # ============================================================
       # Release: 将所有产物发布到 GitHub Release
