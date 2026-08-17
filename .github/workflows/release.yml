@@ -35,6 +35,9 @@ jobs:
       - name: Create output directory
         run: mkdir -p output
 
+      - name: Set build time
+        run: echo "CORE_BUILD_TIME=$(date -u +%Y-%-m-%-d:%-H:%-M)" >> $GITHUB_ENV
+
       # ============================================================
       # Android: CGO_ENABLED=1 + NDK + c-shared → .so 动态库
       # ============================================================
@@ -44,7 +47,7 @@ jobs:
           CGO_ENABLED=1 GOOS=android GOARCH=arm64 CFLAGS="-O3 -Werror" \
           CC=aarch64-linux-android21-clang \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
             -tags=with_gvisor \
             -buildmode=c-shared \
             -o output/arm64-v8a-libclash.so
@@ -54,7 +57,7 @@ jobs:
           CGO_ENABLED=1 GOOS=android GOARCH=arm GOARM=7 CFLAGS="-O3 -Werror" \
           CC=armv7a-linux-androideabi21-clang \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
             -tags=with_gvisor \
             -buildmode=c-shared \
             -o output/armeabi-v7a-libclash.so
@@ -64,7 +67,7 @@ jobs:
           CGO_ENABLED=1 GOOS=android GOARCH=amd64 CFLAGS="-O3 -Werror" \
           CC=x86_64-linux-android21-clang \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }} -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" \
             -tags=with_gvisor \
             -buildmode=c-shared \
             -o output/x86_64-libclash.so
@@ -77,7 +80,7 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }}" \
             -tags=with_gvisor \
             -o output/windows-amd64-FlClashCore.exe
 
@@ -85,7 +88,7 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=windows GOARCH=arm64 \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }}" \
             -tags=with_gvisor \
             -o output/windows-arm64-FlClashCore.exe
 
@@ -97,7 +100,7 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }}" \
             -tags=with_gvisor \
             -o output/linux-amd64-FlClashCore
 
@@ -105,7 +108,7 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }}" \
             -tags=with_gvisor \
             -o output/linux-arm64-FlClashCore
 
@@ -117,7 +120,7 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }}" \
             -tags=with_gvisor \
             -o output/darwin-amd64-FlClashCore
 
@@ -125,7 +128,7 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 \
           go build \
-            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }}" \
+            -ldflags="-w -s -X github.com/metacubex/mihomo/constant.Version=${{ github.ref_name }} -X github.com/metacubex/mihomo/constant.BuildTime=${{ env.CORE_BUILD_TIME }}" \
             -tags=with_gvisor \
             -o output/darwin-arm64-FlClashCore
 
