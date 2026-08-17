@@ -1,4 +1,4 @@
 [submodule "Clash.Meta"]
 	path = Clash.Meta
 	url = https://github.com/Asseken/mihomo.git
-	branch = V1.19.29
+	branch = V1.19.30
